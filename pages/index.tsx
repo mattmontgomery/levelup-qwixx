@@ -5,7 +5,7 @@ import Die from "../app/components/Die";
 import { Game } from "../app/lib/game";
 import styles from "../styles/Home.module.css";
 import events from "events";
-// import Pusher from "pusher-js";
+import Pusher from "pusher-js";
 
 export default function Home() {
   const [game, setGame] = useState<Game>();
@@ -13,19 +13,36 @@ export default function Home() {
   const [board, setBoard] = useState<Game.Board>(Game.getEmptyBoard());
   const [selectedDice, setSelectedDice] = useState<Game.Dice>([]);
   useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_PUSHER_APP_KEY) {
+      return;
+    }
     const emitter = new events.EventEmitter();
     const emitterMethod = (board: Game.Board) => {
       setBoard(board);
     };
     emitter.on("board", emitterMethod);
     setGame(Game.init(emitter));
+    const pusherClient = new Pusher(process.env.NEXT_PUBLIC_PUSHER_APP_KEY, {
+      cluster: "US3",
+    });
+    const channel = pusherClient.subscribe("levelup");
+    channel.bind("roll", ({ message }: { message: Game.Dice }) => {
+      setDice(message);
+      setSelectedDice([]);
+    });
+    // pusherClient.bind("roll", (data) => {
+    //   console.log({ data });
+    //   setDice(data.message);
+    // });
     return () => {
       emitter.off("board", emitterMethod);
+      channel.unbind("roll");
     };
-  });
+  }, []);
   // TODO: get the game up and running
   // TODO: Deploy
   // TODO: Add real-time dice rolling so everyone has the same dice available to them
+
   // TODO: Deploy
   // TODO: Add even more features!!
   // TODO: Deploy
